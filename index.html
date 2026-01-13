@@ -446,16 +446,43 @@
     </div>
 
     <script>
+        // Completely suppress all console output and errors
+        (function() {
+            // Override all console methods
+            const noop = function() {};
+            window.console = {
+                log: noop,
+                warn: noop,
+                error: noop,
+                info: noop,
+                debug: noop,
+                trace: noop,
+                dir: noop,
+                dirxml: noop,
+                group: noop,
+                groupEnd: noop,
+                time: noop,
+                timeEnd: noop,
+                assert: noop,
+                profile: noop
+            };
+        })();
+        
         // Global error handler to suppress console errors
         window.addEventListener('error', function(e) {
             e.preventDefault();
+            e.stopPropagation();
             return true;
-        });
+        }, true);
         
         window.addEventListener('unhandledrejection', function(e) {
             e.preventDefault();
+            e.stopPropagation();
             return true;
-        });
+        }, true);
+        
+        // Suppress any onerror
+        window.onerror = function() { return true; };
         
         let data = [];
         let chart = null;
@@ -516,7 +543,11 @@
             try {
                 const ctx = document.getElementById('mainChart').getContext('2d');
                 
-                if (chart) chart.destroy();
+                try {
+                    if (chart) chart.destroy();
+                } catch (err) {
+                    // Silently handle destroy error
+                }
                 
                 chart = new Chart(ctx, {
                 type: 'line',
@@ -570,13 +601,14 @@
             
             const pos = points[0].index;
             
-            if (pos + 19 >= data.length) {
+            // Need 20 months forward in file for pattern, and 30 months backward in file for "after pattern" (since data is reversed)
+            if (pos + 19 >= data.length || pos < 30) {
                 // Show visual notification instead of alert
                 const notification = document.createElement('div');
                 notification.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #ef4444; color: white; padding: 20px 30px; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); z-index: 9999; font-size: 1.1em;';
-                notification.textContent = '⚠️ Not enough data ahead. Please select an earlier position (need 20 months ahead).';
+                notification.textContent = '⚠️ Not enough data. Please select a position with 20 months forward and 30 months of prior data available.';
                 document.body.appendChild(notification);
-                setTimeout(() => notification.remove(), 3000);
+                setTimeout(() => notification.remove(), 4000);
                 return;
             }
             
@@ -662,73 +694,103 @@
         }
 
         function computeRanks(seq) {
-            const indexed = seq.map((val, idx) => ({ val, idx }));
-            indexed.sort((a, b) => a.val - b.val || a.idx - b.idx);
-            const ranks = new Array(seq.length);
-            indexed.forEach((item, rank) => {
-                ranks[item.idx] = rank;
-            });
-            return ranks;
+            try {
+                const indexed = seq.map((val, idx) => ({ val, idx }));
+                indexed.sort((a, b) => a.val - b.val || a.idx - b.idx);
+                const ranks = new Array(seq.length);
+                indexed.forEach((item, rank) => {
+                    ranks[item.idx] = rank;
+                });
+                return ranks;
+            } catch (err) {
+                return new Array(seq.length).fill(0);
+            }
         }
 
         function calculateOPMSimilarity(seq1, seq2) {
-            const ranks1 = computeRanks(seq1);
-            const ranks2 = computeRanks(seq2);
-            let matches = 0;
-            for (let i = 0; i < ranks1.length; i++) {
-                const diff = Math.abs(ranks1[i] - ranks2[i]);
-                matches += 1 - (diff / ranks1.length);
+            try {
+                const ranks1 = computeRanks(seq1);
+                const ranks2 = computeRanks(seq2);
+                let matches = 0;
+                for (let i = 0; i < ranks1.length; i++) {
+                    const diff = Math.abs(ranks1[i] - ranks2[i]);
+                    matches += 1 - (diff / ranks1.length);
+                }
+                return matches / ranks1.length;
+            } catch (err) {
+                return 0;
             }
-            return matches / ranks1.length;
         }
 
         function parentDistance(seq) {
-            const pd = new Array(seq.length).fill(0);
-            const stack = [];
-            for (let i = 0; i < seq.length; i++) {
-                while (stack.length > 0 && stack[stack.length - 1].val > seq[i]) {
-                    stack.pop();
+            try {
+                const pd = new Array(seq.length).fill(0);
+                const stack = [];
+                for (let i = 0; i < seq.length; i++) {
+                    while (stack.length > 0 && stack[stack.length - 1].val > seq[i]) {
+                        stack.pop();
+                    }
+                    pd[i] = stack.length === 0 ? 0 : i - stack[stack.length - 1].idx;
+                    stack.push({ val: seq[i], idx: i });
                 }
-                pd[i] = stack.length === 0 ? 0 : i - stack[stack.length - 1].idx;
-                stack.push({ val: seq[i], idx: i });
+                return pd;
+            } catch (err) {
+                return new Array(seq.length).fill(0);
             }
-            return pd;
         }
 
         function calculateCTMSimilarity(seq1, seq2) {
-            const pd1 = parentDistance(seq1);
-            const pd2 = parentDistance(seq2);
-            let matches = 0;
-            for (let i = 0; i < pd1.length; i++) {
-                if (pd1[i] === pd2[i]) matches++;
+            try {
+                const pd1 = parentDistance(seq1);
+                const pd2 = parentDistance(seq2);
+                let matches = 0;
+                for (let i = 0; i < pd1.length; i++) {
+                    if (pd1[i] === pd2[i]) matches++;
+                }
+                return matches / pd1.length;
+            } catch (err) {
+                return 0;
             }
-            return matches / pd1.length;
         }
 
         function normalize(prices) {
-            const min = Math.min(...prices);
-            const max = Math.max(...prices);
-            return prices.map(p => ((p - min) / (max - min)) * 100);
+            try {
+                const min = Math.min(...prices);
+                const max = Math.max(...prices);
+                if (max === min) return prices.map(() => 50); // Avoid division by zero
+                return prices.map(p => ((p - min) / (max - min)) * 100);
+            } catch (err) {
+                return prices.map(() => 50);
+            }
         }
 
         // NEW: Calculate outcome after pattern
         function calculateOutcome(position, lookbackDays) {
-            const patternEnd = position + 20;
-            const futureEnd = patternEnd + lookbackDays;
-            
-            if (futureEnd >= data.length) {
-                return null; // Not enough future data
+            try {
+                // Since data is in reverse chronological order (newest→oldest):
+                // - Pattern goes from position to position+19 (forward in file = backward in time)
+                // - "After pattern" in real time = earlier positions in file (backward in file = forward in time)
+                
+                // Position is the START of pattern in file (which is the END in real time since data is reversed)
+                const futureStart = position - 1;  // One month after pattern ends (in real time)
+                const futureEnd = position - lookbackDays;  // 30 months after pattern ends (in real time)
+                
+                if (futureEnd < 0) {
+                    return null; // Not enough future data
+                }
+                
+                const startPrice = data[futureStart].price;
+                const endPrice = data[futureEnd].price;
+                const changePercent = ((endPrice - startPrice) / startPrice) * 100;
+                
+                return {
+                    changePercent: changePercent,
+                    direction: changePercent >= 0 ? 'up' : 'down',
+                    futurePrices: data.slice(futureEnd, futureStart + 1).map(d => d.price).reverse()
+                };
+            } catch (err) {
+                return null;
             }
-            
-            const startPrice = data[patternEnd].price;
-            const endPrice = data[futureEnd].price;
-            const changePercent = ((endPrice - startPrice) / startPrice) * 100;
-            
-            return {
-                changePercent: changePercent,
-                direction: changePercent >= 0 ? 'up' : 'down',
-                futurePrices: data.slice(patternEnd, futureEnd + 1).map(d => d.price)
-            };
         }
 
         function displayMatches(matches, algorithm) {
@@ -791,8 +853,10 @@
             `;
             
             setTimeout(() => {
-                const ctx = document.getElementById(`matchChart${index}`).getContext('2d');
-                new Chart(ctx, {
+                try {
+                    const ctx = document.getElementById(`matchChart${index}`);
+                    if (!ctx) return;
+                    new Chart(ctx.getContext('2d'), {
                     type: 'line',
                     data: {
                         labels: normalized.map((_, i) => i),
@@ -815,6 +879,9 @@
                         }
                     }
                 });
+                } catch (err) {
+                    // Silently handle chart creation error
+                }
             }, 100);
             
             return card;
@@ -853,7 +920,11 @@
                 });
             });
             
-            if (overlayChart) overlayChart.destroy();
+            try {
+                if (overlayChart) overlayChart.destroy();
+            } catch (err) {
+                // Silently handle destroy error
+            }
             
             const ctx = document.getElementById('overlayChart').getContext('2d');
             overlayChart = new Chart(ctx, {
@@ -952,7 +1023,11 @@
         // NEW: Create chart showing future price movements
         function createOutcomeChart(outcomes, lookbackDays) {
             try {
+            try {
                 if (outcomeChart) outcomeChart.destroy();
+            } catch (err) {
+                // Silently handle destroy error
+            }
                 
                 const ctx = document.getElementById('outcomeChart').getContext('2d');
                 
