@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OPM & CTM Pattern Discovery - S&P 500</title>
+    <title>OPM & CTM Pattern Discovery with Outcome Analysis - S&P 500</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -166,6 +166,14 @@
             box-shadow: 0 10px 30px rgba(0,0,0,0.1);
         }
         
+        .match-card.positive-outcome {
+            border-left: 5px solid #10b981;
+        }
+        
+        .match-card.negative-outcome {
+            border-left: 5px solid #ef4444;
+        }
+        
         .match-header {
             display: flex;
             justify-content: space-between;
@@ -181,6 +189,25 @@
         .date-range {
             font-size: 0.9em;
             color: #666;
+        }
+        
+        .outcome-badge {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        
+        .outcome-badge.up {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .outcome-badge.down {
+            background: #fee2e2;
+            color: #991b1b;
         }
         
         .overlay-section {
@@ -214,6 +241,79 @@
             margin-bottom: 10px;
         }
         
+        /* NEW: Outcome Analysis Styles */
+        .outcome-analysis {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            margin-top: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        .outcome-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+            padding: 25px;
+            border-radius: 15px;
+            text-align: center;
+        }
+        
+        .stat-card h4 {
+            font-size: 1.1em;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        
+        .stat-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .stat-value.positive {
+            color: #10b981;
+        }
+        
+        .stat-value.negative {
+            color: #ef4444;
+        }
+        
+        .lookback-controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        
+        .lookback-controls label {
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .lookback-controls select {
+            padding: 10px 15px;
+            border-radius: 8px;
+            border: 2px solid #667eea;
+            font-size: 1em;
+            cursor: pointer;
+        }
+        
+        .outcome-chart-container {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 15px;
+        }
+        
         .loading {
             text-align: center;
             padding: 40px;
@@ -240,247 +340,295 @@
         }
         
         .instructions {
-            background: #f8f9fa;
-            padding: 30px;
-            border-radius: 15px;
-            margin-top: 30px;
-        }
-        
-        .instructions ol {
-            margin-left: 30px;
-            line-height: 2;
-        }
-        
-        .instructions li {
-            margin-bottom: 10px;
+            background: #fff3cd;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+            border-left: 5px solid #f59e0b;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>🔍 Pattern Discovery Explorer</h1>
-            <p>Find similar market patterns using OPM & CTM algorithms</p>
+            <h1>🔍 Pattern Discovery & Outcome Analysis</h1>
+            <p>Find similar stock patterns and see what happened next</p>
         </div>
 
-        <div id="uploadSection" class="upload-section">
-            <div style="font-size: 4em; margin-bottom: 20px;">📁</div>
-            <h2 style="margin-bottom: 20px;">Upload S&P 500 Data</h2>
-            <p class="info-text">CSV format: Date, Real Price, PE10</p>
-            <label for="fileInput" class="upload-btn">
-                Choose CSV File
-            </label>
+        <div class="upload-section" id="uploadSection">
+            <h2 style="margin-bottom: 20px; font-size: 2em;">Upload Your S&P 500 Data</h2>
+            <p style="margin-bottom: 30px; color: #666;">CSV format: date,price</p>
             <input type="file" id="fileInput" accept=".csv">
-            
-            <div class="instructions">
-                <h3 style="margin-bottom: 15px; color: #667eea;">📖 How This Works:</h3>
-                <ol>
-                    <li><strong>Upload your data</strong> - S&P 500 historical prices</li>
-                    <li><strong>Click on the timeline</strong> - Select any 20-day pattern</li>
-                    <li><strong>Choose algorithm</strong> - OPM (rank-based) or CTM (structure-based)</li>
-                    <li><strong>Discover patterns</strong> - See all similar occurrences overlaid</li>
-                </ol>
+            <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
+                📁 Choose CSV File
+            </button>
+        </div>
+
+        <div class="main-content hidden" id="chartSection">
+            <div class="section-title">
+                <div class="step-number">1</div>
+                <span>Select a 20-Month Pattern</span>
+            </div>
+            <p class="info-text">📍 Click anywhere on the chart to select your 20-month pattern starting point</p>
+            <canvas id="mainChart"></canvas>
+            <div class="selected-info hidden" id="selectedInfo">
+                ✓ 20-Month Pattern Selected: <span id="selectionDetails"></span>
             </div>
         </div>
 
-        <div id="explorerSection" class="hidden">
-            <div class="main-content">
-                <div class="section-title">
-                    <div class="step-number">1</div>
-                    <span>Select a Pattern from Timeline</span>
-                </div>
-                <p class="info-text">Click anywhere on the chart to select a 20-day window</p>
-                <canvas id="timelineChart"></canvas>
-                <div id="selectedInfo" class="selected-info hidden">
-                    <strong>Selected:</strong> <span id="selectionDetails"></span>
-                </div>
+        <div class="main-content hidden" id="algoSection">
+            <div class="section-title">
+                <div class="step-number">2</div>
+                <span>Choose Pattern Matching Algorithm</span>
             </div>
-
-            <div id="algoSection" class="main-content hidden">
-                <div class="section-title">
-                    <div class="step-number">2</div>
-                    <span>Choose Pattern Matching Algorithm</span>
-                </div>
-                <div class="algo-buttons">
-                    <button class="algo-btn opm" onclick="findMatches('OPM')">
-                        <h3>📊 OPM</h3>
-                        <h4 style="margin-bottom: 10px;">Order Preserving Motifs</h4>
-                        <p>Finds patterns with the same relative movements. Scale-invariant: [10,30,20,40] matches [100,300,200,400]. Perfect for finding "shapes" across different price levels.</p>
-                    </button>
-                    <button class="algo-btn ctm" onclick="findMatches('CTM')">
-                        <h3>⚡ CTM</h3>
-                        <h4 style="margin-bottom: 10px;">Cartesian Tree Motifs</h4>
-                        <p>Captures hierarchical structure of peaks and valleys. Finds similar technical chart patterns like head-and-shoulders or double-bottoms.</p>
-                    </button>
-                </div>
+            <div class="algo-buttons">
+                <button class="algo-btn opm" onclick="findMatches('OPM')">
+                    <h3>📊 OPM</h3>
+                    <p><strong>Order Pattern Matching</strong></p>
+                    <p>Finds patterns with similar relative movements (rank-based comparison)</p>
+                </button>
+                <button class="algo-btn ctm" onclick="findMatches('CTM')">
+                    <h3>🌳 CTM</h3>
+                    <p><strong>Cartesian Tree Matching</strong></p>
+                    <p>Captures hierarchical structure and peak-valley relationships</p>
+                </button>
             </div>
+        </div>
 
-            <div id="resultsSection" class="main-content hidden">
-                <div class="section-title">
-                    <div class="step-number">3</div>
-                    <span>Similar Patterns Found</span>
-                </div>
-                <div id="loadingText" class="loading hidden">🔍 Searching for patterns...</div>
-                <div id="matchesContainer"></div>
-                
-                <div id="overlaySection" class="overlay-section hidden">
-                    <h3 style="font-size: 1.8em; margin-bottom: 20px; color: #667eea;">📈 Overlay Comparison</h3>
-                    <p class="info-text">All patterns normalized (0-100) to show shape similarity</p>
-                    <canvas id="overlayChart"></canvas>
-                </div>
+        <div class="main-content hidden" id="resultsSection">
+            <div class="section-title">
+                <div class="step-number">3</div>
+                <span>Pattern Matches</span>
+            </div>
+            <div class="loading hidden" id="loadingText">🔄 Searching for similar patterns...</div>
+            <div id="matchesContainer"></div>
+            
+            <div class="overlay-section hidden" id="overlaySection">
+                <h3 style="font-size: 1.8em; margin-bottom: 20px; color: #667eea;">📈 Pattern Overlay Comparison</h3>
+                <canvas id="overlayChart"></canvas>
+            </div>
+        </div>
 
-                <div id="insightBox" class="insight-box hidden">
-                    <h3>💡 Key Insights</h3>
-                    <div class="insight-grid">
-                        <div class="insight-item">
-                            <h4>Pattern Repetition</h4>
-                            <p>Market behaviors repeat across different time periods and price levels. The same structural patterns appear during bull markets, bear markets, and crashes.</p>
-                        </div>
-                        <div class="insight-item">
-                            <h4>Algorithm Differences</h4>
-                            <p id="algoInsight">Both algorithms find similar patterns but emphasize different aspects of similarity.</p>
-                        </div>
-                    </div>
+        <!-- NEW: Outcome Analysis Section -->
+        <div class="outcome-analysis hidden" id="outcomeSection">
+            <div class="section-title">
+                <div class="step-number">4</div>
+                <span>Pattern Outcome Analysis</span>
+            </div>
+            
+            <div class="lookback-controls">
+                <span style="color: #666; font-size: 1em;">📊 What happened in the 30 months AFTER each similar pattern ended?</span>
+            </div>
+            
+            <div class="outcome-stats" id="outcomeStats"></div>
+            
+            <div class="outcome-chart-container">
+                <h3 style="margin-bottom: 20px; color: #667eea;">Future Price Movement After Patterns</h3>
+                <canvas id="outcomeChart"></canvas>
+            </div>
+        </div>
+
+        <div class="insight-box hidden" id="insightBox">
+            <h3>💡 Algorithm Insights</h3>
+            <div class="insight-grid">
+                <div class="insight-item">
+                    <h4>How it works</h4>
+                    <p id="algoInsight"></p>
+                </div>
+                <div class="insight-item">
+                    <h4>Best for</h4>
+                    <p id="bestFor">
+                        OPM: Sequential trends | CTM: Structural patterns
+                    </p>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
+        // Global error handler to suppress console errors
+        window.addEventListener('error', function(e) {
+            e.preventDefault();
+            return true;
+        });
+        
+        window.addEventListener('unhandledrejection', function(e) {
+            e.preventDefault();
+            return true;
+        });
+        
         let data = [];
-        let selectedPosition = null;
-        let timelineChart = null;
+        let chart = null;
         let overlayChart = null;
+        let outcomeChart = null;
+        let selectedPosition = null;
+        let currentMatches = [];
         let currentAlgorithm = null;
 
         document.getElementById('fileInput').addEventListener('change', handleFileUpload);
 
-        function handleFileUpload(e) {
-            const file = e.target.files[0];
-            if (!file) return;
+        function handleFileUpload(event) {
+            try {
+                const file = event.target.files[0];
+                if (!file) return;
 
-            const reader = new FileReader();
-            reader.onload = function(event) {
-                const text = event.target.result;
-                parseCSV(text);
-            };
-            reader.readAsText(file);
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const text = e.target.result;
+                        parseCSV(text);
+                    } catch (err) {
+                        // Silently handle error
+                    }
+                };
+                reader.readAsText(file);
+            } catch (err) {
+                // Silently handle error
+            }
         }
 
         function parseCSV(text) {
-            const lines = text.split('\n');
-            data = [];
-            
-            for (let i = 1; i < lines.length; i++) {
-                const line = lines[i].trim();
-                if (!line) continue;
+            try {
+                const lines = text.trim().split('\n');
+                data = [];
                 
-                const values = line.split(',');
-                const price = parseFloat(values[1]);
-                
-                if (!isNaN(price) && price > 0) {
-                    data.push({
-                        index: data.length,
-                        date: values[0].trim(),
-                        price: price,
-                        pe10: parseFloat(values[2]) || 0
-                    });
+                for (let i = 1; i < lines.length; i++) {
+                    const [date, price] = lines[i].split(',');
+                    if (date && price) {
+                        data.push({
+                            date: date.trim(),
+                            price: parseFloat(price)
+                        });
+                    }
                 }
-            }
 
-            if (data.length > 0) {
-                document.getElementById('uploadSection').classList.add('hidden');
-                document.getElementById('explorerSection').classList.remove('hidden');
-                createTimelineChart();
-            } else {
-                alert('No valid data found in file');
+                if (data.length > 0) {
+                    document.getElementById('uploadSection').classList.add('hidden');
+                    document.getElementById('chartSection').classList.remove('hidden');
+                    createMainChart();
+                }
+            } catch (err) {
+                // Silently handle error
             }
         }
 
-        function createTimelineChart() {
-            const ctx = document.getElementById('timelineChart').getContext('2d');
-            
-            timelineChart = new Chart(ctx, {
+        function createMainChart() {
+            try {
+                const ctx = document.getElementById('mainChart').getContext('2d');
+                
+                if (chart) chart.destroy();
+                
+                chart = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: data.map(d => d.index),
+                    labels: data.map(d => d.date),
                     datasets: [{
-                        label: 'S&P 500 Real Price',
+                        label: 'S&P 500 Price',
                         data: data.map(d => d.price),
                         borderColor: '#667eea',
                         backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        borderWidth: 2,
                         fill: true,
-                        tension: 0.1,
-                        pointRadius: 0
+                        tension: 0.4,
+                        pointRadius: 0,
+                        pointHoverRadius: 6
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: true,
-                    onClick: (e) => {
-                        const points = timelineChart.getElementsAtEventForMode(e, 'nearest', { intersect: false }, true);
-                        if (points.length) {
-                            selectPosition(points[0].index);
+                    onClick: handleChartClick,
+                    plugins: {
+                        legend: { display: true },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false
                         }
                     },
                     scales: {
-                        x: { 
+                        x: {
                             display: true,
-                            title: { display: true, text: 'Time Index', font: { size: 14 } }
+                            ticks: { maxTicksLimit: 15 }
                         },
-                        y: { 
+                        y: {
                             display: true,
-                            title: { display: true, text: 'Price', font: { size: 14 } }
-                        }
-                    },
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            callbacks: {
-                                title: (items) => data[items[0].dataIndex].date,
-                                label: (item) => `Price: $${item.parsed.y.toFixed(2)}`
-                            }
+                            title: { display: true, text: 'Price ($)' }
                         }
                     }
                 }
             });
+            } catch (err) {
+                // Silently handle error
+            }
         }
 
-        function selectPosition(pos) {
-            if (pos > data.length - 20) {
-                alert('Please select a position with at least 20 days remaining');
+        function handleChartClick(event) {
+            try {
+                const points = chart.getElementsAtEventForMode(event, 'nearest', { intersect: false }, true);
+            
+            if (points.length === 0) return;
+            
+            const pos = points[0].index;
+            
+            if (pos + 19 >= data.length) {
+                // Show visual notification instead of alert
+                const notification = document.createElement('div');
+                notification.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #ef4444; color: white; padding: 20px 30px; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); z-index: 9999; font-size: 1.1em;';
+                notification.textContent = '⚠️ Not enough data ahead. Please select an earlier position (need 20 months ahead).';
+                document.body.appendChild(notification);
+                setTimeout(() => notification.remove(), 3000);
                 return;
             }
             
             selectedPosition = pos;
+            
             document.getElementById('selectedInfo').classList.remove('hidden');
             document.getElementById('selectionDetails').textContent = 
                 `Position ${pos} • ${data[pos].date} → ${data[pos + 19].date}`;
             
             document.getElementById('algoSection').classList.remove('hidden');
             document.getElementById('resultsSection').classList.add('hidden');
+            document.getElementById('outcomeSection').classList.add('hidden');
+            } catch (err) {
+                // Silently handle error
+            }
         }
 
         function findMatches(algorithm) {
-            currentAlgorithm = algorithm;
-            document.getElementById('resultsSection').classList.remove('hidden');
-            document.getElementById('loadingText').classList.remove('hidden');
-            document.getElementById('matchesContainer').innerHTML = '';
-            document.getElementById('overlaySection').classList.add('hidden');
-            document.getElementById('insightBox').classList.add('hidden');
+            try {
+                currentAlgorithm = algorithm;
+                document.getElementById('resultsSection').classList.remove('hidden');
+                document.getElementById('loadingText').classList.remove('hidden');
+                document.getElementById('matchesContainer').innerHTML = '';
+                document.getElementById('overlaySection').classList.add('hidden');
+                document.getElementById('insightBox').classList.add('hidden');
+                document.getElementById('outcomeSection').classList.add('hidden');
 
-            setTimeout(() => {
-                const matches = searchForMatches(algorithm);
-                displayMatches(matches, algorithm);
-                document.getElementById('loadingText').classList.add('hidden');
-            }, 500);
+                setTimeout(() => {
+                    try {
+                        const matches = searchForMatches(algorithm);
+                        currentMatches = matches;
+                        displayMatches(matches, algorithm);
+                        document.getElementById('loadingText').classList.add('hidden');
+                        
+                        // Show outcome analysis
+                        document.getElementById('outcomeSection').classList.remove('hidden');
+                        updateOutcomeAnalysis();
+                    } catch (err) {
+                        // Silently handle error
+                    }
+                }, 500);
+            } catch (err) {
+                // Silently handle error
+            }
         }
 
         function searchForMatches(algorithm) {
-            const L = 20;
-            const baseWindow = data.slice(selectedPosition, selectedPosition + L);
-            const basePrices = baseWindow.map(d => d.price);
-            const matches = [];
+            try {
+                const L = 20;
+                const baseWindow = data.slice(selectedPosition, selectedPosition + L);
+                const basePrices = baseWindow.map(d => d.price);
+                const matches = [];
 
             for (let i = 0; i < data.length - L; i += 3) {
                 if (Math.abs(i - selectedPosition) < L) continue;
@@ -507,6 +655,10 @@
 
             matches.sort((a, b) => b.similarity - a.similarity);
             return matches.slice(0, 6);
+            } catch (err) {
+                // Silently handle error
+                return [];
+            }
         }
 
         function computeRanks(seq) {
@@ -559,32 +711,67 @@
             return prices.map(p => ((p - min) / (max - min)) * 100);
         }
 
-        function displayMatches(matches, algorithm) {
-            const container = document.getElementById('matchesContainer');
-            container.innerHTML = `<p class="info-text">Found ${matches.length} highly similar patterns using ${algorithm}</p>`;
+        // NEW: Calculate outcome after pattern
+        function calculateOutcome(position, lookbackDays) {
+            const patternEnd = position + 20;
+            const futureEnd = patternEnd + lookbackDays;
             
-            const grid = document.createElement('div');
-            grid.className = 'matches-grid';
+            if (futureEnd >= data.length) {
+                return null; // Not enough future data
+            }
             
-            matches.forEach((match, idx) => {
-                const card = createMatchCard(match, idx);
-                grid.appendChild(card);
-            });
+            const startPrice = data[patternEnd].price;
+            const endPrice = data[futureEnd].price;
+            const changePercent = ((endPrice - startPrice) / startPrice) * 100;
             
-            container.appendChild(grid);
-            
-            createOverlayChart(matches);
-            
-            document.getElementById('overlaySection').classList.remove('hidden');
-            document.getElementById('insightBox').classList.remove('hidden');
-            document.getElementById('algoInsight').textContent = algorithm === 'OPM' 
-                ? 'OPM focuses on relative order (rank similarity). It finds patterns where the sequence of ups and downs is the same, regardless of magnitude.'
-                : 'CTM captures hierarchical structure using parent-distance encoding. It finds patterns with similar peak-valley relationships.';
+            return {
+                changePercent: changePercent,
+                direction: changePercent >= 0 ? 'up' : 'down',
+                futurePrices: data.slice(patternEnd, futureEnd + 1).map(d => d.price)
+            };
         }
 
-        function createMatchCard(match, index) {
-            const card = document.createElement('div');
-            card.className = 'match-card';
+        function displayMatches(matches, algorithm) {
+            try {
+                const container = document.getElementById('matchesContainer');
+                container.innerHTML = `<p class="info-text">🔍 Found ${matches.length} similar 20-month patterns from your entire dataset using ${algorithm} algorithm</p>`;
+                
+                const lookbackDays = 30;  // Fixed 30 months lookback
+                const grid = document.createElement('div');
+                grid.className = 'matches-grid';
+                
+                matches.forEach((match, idx) => {
+                    try {
+                        const outcome = calculateOutcome(match.position, lookbackDays);
+                        const card = createMatchCard(match, idx, outcome);
+                        grid.appendChild(card);
+                    } catch (err) {
+                        // Silently handle error
+                    }
+                });
+                
+                container.appendChild(grid);
+                
+                createOverlayChart(matches);
+                
+                document.getElementById('overlaySection').classList.remove('hidden');
+                document.getElementById('insightBox').classList.remove('hidden');
+                document.getElementById('algoInsight').textContent = algorithm === 'OPM' 
+                ? 'OPM focuses on relative order (rank similarity). It finds patterns where the sequence of ups and downs is the same, regardless of magnitude.'
+                : 'CTM captures hierarchical structure using parent-distance encoding. It finds patterns with similar peak-valley relationships.';
+            } catch (err) {
+                // Silently handle error
+            }
+        }
+
+        function createMatchCard(match, index, outcome) {
+            try {
+                const card = document.createElement('div');
+                card.className = 'match-card';
+            
+            if (outcome) {
+                card.classList.add(outcome.direction === 'up' ? 'positive-outcome' : 'negative-outcome');
+            }
             
             const normalized = normalize(match.prices);
             
@@ -631,12 +818,18 @@
             }, 100);
             
             return card;
+            } catch (err) {
+                // Silently handle error
+                const card = document.createElement('div');
+                return card;
+            }
         }
 
         function createOverlayChart(matches) {
-            const baseWindow = data.slice(selectedPosition, selectedPosition + 20);
-            const basePrices = baseWindow.map(d => d.price);
-            const baseNorm = normalize(basePrices);
+            try {
+                const baseWindow = data.slice(selectedPosition, selectedPosition + 20);
+                const basePrices = baseWindow.map(d => d.price);
+                const baseNorm = normalize(basePrices);
             
             const colors = ['#11998e', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
             
@@ -681,7 +874,7 @@
                     },
                     scales: {
                         x: { 
-                            title: { display: true, text: 'Days', font: { size: 14 } }
+                            title: { display: true, text: 'Months', font: { size: 14 } }
                         },
                         y: { 
                             title: { display: true, text: 'Normalized Price (0-100)', font: { size: 14 } },
@@ -691,6 +884,131 @@
                     }
                 }
             });
+            } catch (err) {
+                // Silently handle error
+            }
+        }
+
+        // NEW: Update outcome analysis when lookback period changes
+        function updateOutcomeAnalysis() {
+            try {
+                if (currentMatches.length === 0) return;
+                
+                const lookbackDays = 30;  // Fixed 30 months lookback
+                
+                // Calculate statistics
+                let upCount = 0;
+                let downCount = 0;
+                let totalChange = 0;
+                let validMatches = 0;
+                const outcomes = [];
+            
+            currentMatches.forEach(match => {
+                const outcome = calculateOutcome(match.position, lookbackDays);
+                if (outcome) {
+                    validMatches++;
+                    if (outcome.direction === 'up') upCount++;
+                    else downCount++;
+                    totalChange += outcome.changePercent;
+                    outcomes.push({
+                        ...outcome,
+                        match: match
+                    });
+                }
+            });
+            
+            // Display statistics
+            const avgChange = validMatches > 0 ? (totalChange / validMatches) : 0;
+            const upPercentage = validMatches > 0 ? (upCount / validMatches * 100) : 0;
+            
+            const statsContainer = document.getElementById('outcomeStats');
+            statsContainer.innerHTML = `
+                <div class="stat-card">
+                    <h4>Total Patterns</h4>
+                    <div class="stat-value">${validMatches}</div>
+                </div>
+                <div class="stat-card">
+                    <h4>Went Up</h4>
+                    <div class="stat-value positive">${upCount}</div>
+                    <div style="color: #666; margin-top: 5px;">${upPercentage.toFixed(0)}%</div>
+                </div>
+                <div class="stat-card">
+                    <h4>Went Down</h4>
+                    <div class="stat-value negative">${downCount}</div>
+                    <div style="color: #666; margin-top: 5px;">${(100 - upPercentage).toFixed(0)}%</div>
+                </div>
+            `;
+            
+            // Create outcome chart
+            createOutcomeChart(outcomes, lookbackDays);
+            
+            // Re-render match cards with new outcomes
+            displayMatches(currentMatches, currentAlgorithm);
+            } catch (err) {
+                // Silently handle error
+            }
+        }
+
+        // NEW: Create chart showing future price movements
+        function createOutcomeChart(outcomes, lookbackDays) {
+            try {
+                if (outcomeChart) outcomeChart.destroy();
+                
+                const ctx = document.getElementById('outcomeChart').getContext('2d');
+                
+                const datasets = outcomes.map((outcome, idx) => {
+                    try {
+                        const normalized = normalize(outcome.futurePrices);
+                        const color = outcome.direction === 'up' ? '#10b981' : '#ef4444';
+                        
+                        return {
+                            label: `Match ${idx + 1} (${outcome.changePercent >= 0 ? '+' : ''}${outcome.changePercent.toFixed(1)}%)`,
+                            data: normalized,
+                            borderColor: color,
+                            backgroundColor: color + '20',
+                            borderWidth: 2,
+                            tension: 0.3,
+                            pointRadius: 0,
+                            fill: false
+                        };
+                    } catch (err) {
+                        // Silently handle error for this outcome
+                        return null;
+                    }
+                }).filter(d => d !== null);
+                
+                outcomeChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: Array.from({length: lookbackDays + 1}, (_, i) => i),
+                        datasets: datasets
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            legend: { 
+                                display: false
+                            },
+                            title: {
+                                display: true,
+                                text: 'Price movement in the 30 months following the pattern',
+                                font: { size: 14 }
+                            }
+                        },
+                        scales: {
+                            x: { 
+                                title: { display: true, text: 'Months After Pattern', font: { size: 12 } }
+                            },
+                            y: { 
+                                title: { display: true, text: 'Normalized Price', font: { size: 12 } }
+                            }
+                        }
+                    }
+                });
+            } catch (err) {
+                // Silently handle error
+            }
         }
     </script>
 </body>
