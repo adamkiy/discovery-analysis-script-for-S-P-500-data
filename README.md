@@ -1,6 +1,6 @@
 ## How to Run the Project
 
-This project can be run in **Google Colab** or locally using the provided **HTML file**.
+This project can be run in **Google Colab** besides that we have  **HTML file**.
 
 ### First code — Run in Google Colab
 1. Open the notebook:  
